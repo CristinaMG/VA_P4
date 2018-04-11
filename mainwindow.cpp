@@ -176,6 +176,7 @@ void MainWindow::load_image()
 void MainWindow::segmentation_image()
 {
     int numberRegions = 0;
+    uchar valueGray = 0;
 
     Canny(grayImage, borders, 40, 120);
 
@@ -190,6 +191,67 @@ void MainWindow::segmentation_image()
 
     }
 
+    int min, reg;
+    for(int i = 0; i<grayImage.rows; i++){
+        for(int j = 0; j<grayImage.cols; j++){
+            if(regions.at<int>(i,j) == -1){
+
+                valueGray = grayImage.at<uchar>(i,j);
+                min = 1000, reg = -1;
+                for(int k = i-1; k<i+2; k++){
+                    for(int l = j-1; l<j+2; l++){
+                        if(l>=0 && k>=0 && l<grayImage.cols && k<grayImage.rows
+                                && min > abs(valueGray - grayImage.at<uchar>(k, l))
+                                && regions.at<int>(k, l)!= -1
+                                && (l!=j || k!=i)){
+                            min = abs(valueGray - grayImage.at<uchar>(k, l));
+                            reg = regions.at<int>(k, l);
+                        }
+                    }
+                }
+                regions.at<int>(i,j) = reg;
+                regionsList.at(reg).numPoints++;
+            }
+        }
+    }
+
+    /*
+        for(int i = 0; i<grayImage.rows; i++){
+            for(int j = 0; j<grayImage.cols; j++){
+                if(regions.at<int>(i,j) == -1){
+                    valueGray = grayImage.at<uchar>(i,j);
+                    int min = 1000, reg = -1;
+                    if(i>0 && min > abs(valueGray - grayImage.at<uchar>(i-1, j)) && regions.at<int>(i-1, j)!= -1){
+                        min = abs(valueGray - grayImage.at<uchar>(i-1, j));
+                        reg = regions.at<int>(i-1, j);
+                    }
+
+
+                    if(i<grayImage.rows-1 && min > abs(valueGray - grayImage.at<uchar>(i+1, j)) && regions.at<int>(i+1, j)!= -1){
+                        min = abs(valueGray - grayImage.at<uchar>(i+1, j));
+                        reg = regions.at<int>(i+1, j);
+                    }
+
+
+                    if(j>0 && min > abs(valueGray - grayImage.at<uchar>(i, j-1)) && regions.at<int>(i, j-1)!= -1){
+                        min = abs(valueGray - grayImage.at<uchar>(i, j-1));
+                        reg = regions.at<int>(i, j-1);
+                    }
+
+                    if(j<grayImage.cols-1 && min > abs(valueGray - grayImage.at<uchar>(i, j+1)) && regions.at<int>(i, j+1)!= -1){
+                        min = abs(valueGray - grayImage.at<uchar>(i, j+1));
+                        reg = regions.at<int>(i, j+1);
+                    }
+
+
+
+                    regions.at<int>(i,j) = reg;
+                    //qDebug()<<regionsList.size() << "reg" <<reg;
+                    regionsList.at(reg).numPoints++;
+                }
+            }
+        }*/
+
     for (int var = 0; var < regions.rows; ++var) {
         for (int var2 = 0; var2 < regions.cols; ++var2) {
             destGrayImage.at<uchar>(var,var2) = regionsList.at(regions.at<int>(var,var2)).gray;
@@ -201,11 +263,9 @@ void MainWindow::create_region(Point inicial, int numberRegion){
     std::vector<Point> list;
     Point pAct;
     uint i =0;
-    uchar valueGray;
     list.push_back(inicial);
+    uchar valueGray = grayImage.at<uchar>(inicial);
 
-
-    valueGray = grayImage.at<uchar>(inicial);
     while(i<list.size()){
         pAct = list[i];
 
@@ -229,46 +289,8 @@ void MainWindow::create_region(Point inicial, int numberRegion){
     region.numPoints = list.size();
 
     regionsList.push_back(region);
-
-/*
-    for(int i = 0; i<grayImage.rows; i++){
-        for(int j = 0; j<grayImage.cols; j++){
-            if(regions.at<int>(i,j) == -1){
-                valueGray = grayImage.at<uchar>(i,j);
-                int min = 1000, reg = -1;
-                if(i>0 && min > abs(valueGray - grayImage.at<uchar>(i-1, j)) && regions.at<int>(i-1, j)!= -1){
-                    min = abs(valueGray - grayImage.at<uchar>(i-1, j));
-                    reg = regions.at<int>(i-1, j);
-                }
-
-
-                if(i<grayImage.rows-1 && min > abs(valueGray - grayImage.at<uchar>(i+1, j)) && regions.at<int>(i+1, j)!= -1){
-                    min = abs(valueGray - grayImage.at<uchar>(i+1, j));
-                    reg = regions.at<int>(i+1, j);
-                }
-
-
-                if(j>0 && min > abs(valueGray - grayImage.at<uchar>(i, j-1)) && regions.at<int>(i, j-1)!= -1){
-                    min = abs(valueGray - grayImage.at<uchar>(i, j-1));
-                    reg = regions.at<int>(i, j-1);
-                }
-
-                if(j<grayImage.cols-1 && min > abs(valueGray - grayImage.at<uchar>(i, j+1)) && regions.at<int>(i, j+1)!= -1){
-                    min = abs(valueGray - grayImage.at<uchar>(i, j+1));
-                    reg = regions.at<int>(i, j+1);
-                }
-
-
-
-                regions.at<int>(i,j) = reg;
-                //qDebug()<<regionsList.size() << "reg" <<reg;
-                regionsList.at(reg).numPoints++;
-            }
-        }
-    }*/
-
-
     list.clear();
+
 }
 
 void MainWindow::draw_borders(){
