@@ -38,7 +38,6 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(visorS,SIGNAL(pressEvent()),this,SLOT(deselectWindow()));
 
     connect(ui->loadButton,SIGNAL(clicked(bool)),this,SLOT(load_image()));
-    connect(ui->checkBoxBorder, SIGNAL(clicked(bool)), this, SLOT(draw_borders()));
 
     timer.start(60);
 
@@ -71,6 +70,7 @@ void MainWindow::compute()
     }
 
     segmentation_image();
+    draw_borders();
 
     if(showColorImage)
     {
@@ -215,43 +215,6 @@ void MainWindow::segmentation_image()
         }
     }
 
-    /*
-        for(int i = 0; i<grayImage.rows; i++){
-            for(int j = 0; j<grayImage.cols; j++){
-                if(regions.at<int>(i,j) == -1){
-                    valueGray = grayImage.at<uchar>(i,j);
-                    int min = 1000, reg = -1;
-                    if(i>0 && min > abs(valueGray - grayImage.at<uchar>(i-1, j)) && regions.at<int>(i-1, j)!= -1){
-                        min = abs(valueGray - grayImage.at<uchar>(i-1, j));
-                        reg = regions.at<int>(i-1, j);
-                    }
-
-
-                    if(i<grayImage.rows-1 && min > abs(valueGray - grayImage.at<uchar>(i+1, j)) && regions.at<int>(i+1, j)!= -1){
-                        min = abs(valueGray - grayImage.at<uchar>(i+1, j));
-                        reg = regions.at<int>(i+1, j);
-                    }
-
-
-                    if(j>0 && min > abs(valueGray - grayImage.at<uchar>(i, j-1)) && regions.at<int>(i, j-1)!= -1){
-                        min = abs(valueGray - grayImage.at<uchar>(i, j-1));
-                        reg = regions.at<int>(i, j-1);
-                    }
-
-                    if(j<grayImage.cols-1 && min > abs(valueGray - grayImage.at<uchar>(i, j+1)) && regions.at<int>(i, j+1)!= -1){
-                        min = abs(valueGray - grayImage.at<uchar>(i, j+1));
-                        reg = regions.at<int>(i, j+1);
-                    }
-
-
-
-                    regions.at<int>(i,j) = reg;
-                    //qDebug()<<regionsList.size() << "reg" <<reg;
-                    regionsList.at(reg).numPoints++;
-                }
-            }
-        }*/
-
     for (int var = 0; var < regions.rows; ++var) {
         for (int var2 = 0; var2 < regions.cols; ++var2) {
             destGrayImage.at<uchar>(var,var2) = regionsList.at(regions.at<int>(var,var2)).gray;
@@ -270,13 +233,24 @@ void MainWindow::create_region(Point inicial, int numberRegion){
         pAct = list[i];
 
         if(pAct.x >=0 && pAct.x<grayImage.cols && pAct.y>=0 && pAct.y<grayImage.rows && regions.at<int>(pAct) == -1 && borders.at<uchar>(pAct)==0){
-            if(abs(grayImage.at<uchar>(pAct.y, pAct.x)-valueGray) < 50)
-            {
-                regions.at<int>(pAct.y, pAct.x) = numberRegion;
-                list.push_back(Point(pAct.x-1, pAct.y));
-                list.push_back(Point(pAct.x, pAct.y-1));
-                list.push_back(Point(pAct.x+1, pAct.y));
-                list.push_back(Point(pAct.x, pAct.y+1));
+            if(ui->checkBoxStatistics->isChecked()){
+                if(typical_deviation(pAct,numberRegion) < 2.0)
+                {
+                    regions.at<int>(pAct.y, pAct.x) = numberRegion;
+                    list.push_back(Point(pAct.x-1, pAct.y));
+                    list.push_back(Point(pAct.x, pAct.y-1));
+                    list.push_back(Point(pAct.x+1, pAct.y));
+                    list.push_back(Point(pAct.x, pAct.y+1));
+                }
+            }else{
+                if(abs(grayImage.at<uchar>(pAct.y, pAct.x)-valueGray) < 50)
+                {
+                    regions.at<int>(pAct.y, pAct.x) = numberRegion;
+                    list.push_back(Point(pAct.x-1, pAct.y));
+                    list.push_back(Point(pAct.x, pAct.y-1));
+                    list.push_back(Point(pAct.x+1, pAct.y));
+                    list.push_back(Point(pAct.x, pAct.y+1));
+                }
             }
         }
         i++;
@@ -294,5 +268,65 @@ void MainWindow::create_region(Point inicial, int numberRegion){
 }
 
 void MainWindow::draw_borders(){
-    //find_borders();
+    if(ui->checkBoxBorder->isChecked()){
+        find_borders();
+        for(uint i = 0; i<regionsList.size();i++){
+            for(uint j = 0; j<regionsList.at(i).frontier.size(); j++){
+                visorD->drawSquare(QPointF(regionsList.at(i).frontier.at(j).x-1,regionsList.at(i).frontier.at(j).y-1), 2,2, Qt::green );
+            }
+        }
+    }
+}
+
+void MainWindow::find_borders(){
+    bool border = false;
+    for(int i = 0; i<grayImage.rows; i++){
+        for(int j = 0; j<grayImage.cols; j++){
+            border = false;
+            if(i>0 && regions.at<int>(i-1, j) != regions.at<int>(i,j)){
+                regionsList.at(regions.at<int>(i,j)).frontier.push_back(Point(j,i));
+                border = true;
+            }
+            if(j>0 && regions.at<int>(i,j-1) != regions.at<int>(i,j) && !border){
+                regionsList.at(regions.at<int>(i,j)).frontier.push_back(Point(j,i));
+                border=true;
+            }
+            if(i<grayImage.rows-1 && regions.at<int>(i+1,j) != regions.at<int>(i,j) && !border){
+                regionsList.at(regions.at<int>(i,j)).frontier.push_back(Point(j,i));
+                border=true;
+            }
+            if(j<grayImage.cols-1 && regions.at<int>(i,j+1) != regions.at<int>(i,j) && !border){
+                regionsList.at(regions.at<int>(i,j)).frontier.push_back(Point(j,i));
+                border=true;
+            }
+        }
+    }
+}
+
+float MainWindow::typical_deviation(Point p, int numberRegion){
+
+    float av = 0.0, cont = 0.0, dt = 0.0;
+    for(int i = 0; i<regions.rows; i++){
+        for(int j = 0; j<regions.cols; j++){
+            if(regions.at<int>(i,j)==numberRegion){
+                av += grayImage.at<uchar>(i,j);
+                cont++;
+            }
+        }
+    }
+
+    cont++;
+    av = (av+grayImage.at<uchar>(p))/(cont);
+
+    for(int i = 0; i<regions.rows; i++){
+        for(int j = 0; j<regions.cols; j++){
+            if(regions.at<int>(i,j)==numberRegion){
+                dt += pow(grayImage.at<uchar>(i,j)-av,2);
+            }
+        }
+    }
+
+    dt=sqrt(dt+pow(grayImage.at<uchar>(p)-av,2)/cont);
+    qDebug()<<dt;
+    return dt;
 }

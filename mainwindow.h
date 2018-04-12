@@ -60,6 +60,8 @@ public slots:
     void segmentation_image();
     void create_region(Point inicial, int numberRegion);
     void draw_borders();
+    void find_borders();
+    float typical_deviation(Point p, int numberRegion);
 
 };
 
