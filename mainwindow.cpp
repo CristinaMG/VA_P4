@@ -228,14 +228,23 @@ void MainWindow::create_region(Point inicial, int numberRegion){
     uint i =0;
     list.push_back(inicial);
     uchar valueGray = grayImage.at<uchar>(inicial);
+    float av = 0.0, avNew = 0.0, dt = 0.0, dtNew = 0.0;
+    int cont = 0;
 
     while(i<list.size()){
         pAct = list[i];
 
         if(pAct.x >=0 && pAct.x<grayImage.cols && pAct.y>=0 && pAct.y<grayImage.rows && regions.at<int>(pAct) == -1 && borders.at<uchar>(pAct)==0){
             if(ui->checkBoxStatistics->isChecked()){
-                if(typical_deviation(pAct,numberRegion) < 2.0)
+
+                avNew = (av * cont + grayImage.at<uchar>(pAct))/(cont+1);
+                cont++;
+                dtNew = dt + (grayImage.at<uchar>(pAct)-av)*(grayImage.at<uchar>(pAct)-avNew);
+
+                if(sqrt(dtNew/cont) < 20.0)
                 {
+                    av = avNew;
+                    dt = dtNew;
                     regions.at<int>(pAct.y, pAct.x) = numberRegion;
                     list.push_back(Point(pAct.x-1, pAct.y));
                     list.push_back(Point(pAct.x, pAct.y-1));
@@ -261,7 +270,6 @@ void MainWindow::create_region(Point inicial, int numberRegion){
     region.gray = grayImage.at<uchar>(inicial);
     region.id = numberRegion;
     region.numPoints = list.size();
-
     regionsList.push_back(region);
     list.clear();
 
@@ -305,19 +313,19 @@ void MainWindow::find_borders(){
 
 float MainWindow::typical_deviation(Point p, int numberRegion){
 
-    float av = 0.0, cont = 0.0, dt = 0.0;
+    float av = 0.0, dt = 0.0;
+    int cont = 0;
     for(int i = 0; i<regions.rows; i++){
         for(int j = 0; j<regions.cols; j++){
             if(regions.at<int>(i,j)==numberRegion){
-                av += grayImage.at<uchar>(i,j);
+                av = (av * cont + grayImage.at<uchar>(i,j))/(cont+1);
                 cont++;
             }
         }
     }
 
-    cont++;
-    av = (av+grayImage.at<uchar>(p))/(cont);
-
+    qDebug()<<av;
+/*
     for(int i = 0; i<regions.rows; i++){
         for(int j = 0; j<regions.cols; j++){
             if(regions.at<int>(i,j)==numberRegion){
@@ -327,6 +335,8 @@ float MainWindow::typical_deviation(Point p, int numberRegion){
     }
 
     dt=sqrt(dt+pow(grayImage.at<uchar>(p)-av,2)/cont);
-    qDebug()<<dt;
-    return dt;
+    //qDebug()<<dt;
+    return dt;*/
+
+    return abs(av - grayImage.at<uchar>(p));
 }
