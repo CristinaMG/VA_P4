@@ -37,6 +37,11 @@ private:
         std::vector<Point> frontier;
     };
 
+    struct pair{
+        int bordersCanny;
+        int frontier;
+    };
+
     Ui::MainWindow *ui;
     QTimer timer;
 
@@ -61,8 +66,6 @@ public slots:
     void create_region(Point inicial, int numberRegion);
     void draw_borders();
     void find_borders();
-    float typical_deviation(Point p, int numberRegion);
-
 };
 
 

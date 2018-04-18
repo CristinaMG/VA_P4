@@ -288,13 +288,33 @@ void MainWindow::draw_borders(){
 
 void MainWindow::find_borders(){
     bool border = false;
+    std::vector<QMap<int,pair>> maps;
+    int id , idN;
+    for(uint i = 0; i<regionsList.size();i++){
+        //creamos un vector de mapas que corresponde a cada region
+        maps.push_back(QMap<int, pair>());
+    }
+
+
     for(int i = 0; i<grayImage.rows; i++){
         for(int j = 0; j<grayImage.cols; j++){
             border = false;
             if(i>0 && regions.at<int>(i-1, j) != regions.at<int>(i,j)){
-                regionsList.at(regions.at<int>(i,j)).frontier.push_back(Point(j,i));
+                id=regions.at<int>(i,j);
+                idN=regions.at<int>(i-1, j);
+                regionsList.at(id).frontier.push_back(Point(j,i));
                 border = true;
+
+                if(maps.at(id).find(idN) == maps.at(id).end()){
+                    maps.at(id)[idN].bordersCanny = 0;
+                    maps.at(id)[idN].frontier = 0;
+                }
+                maps.at(id)[idN].frontier++;
+                if(borders.at<uchar>(i,j) == 255 || borders.at<uchar>(i-1,j) ==255)
+                    maps.at(id)[idN].bordersCanny++;
+
             }
+
             if(j>0 && regions.at<int>(i,j-1) != regions.at<int>(i,j) && !border){
                 regionsList.at(regions.at<int>(i,j)).frontier.push_back(Point(j,i));
                 border=true;
@@ -311,32 +331,3 @@ void MainWindow::find_borders(){
     }
 }
 
-float MainWindow::typical_deviation(Point p, int numberRegion){
-
-    float av = 0.0, dt = 0.0;
-    int cont = 0;
-    for(int i = 0; i<regions.rows; i++){
-        for(int j = 0; j<regions.cols; j++){
-            if(regions.at<int>(i,j)==numberRegion){
-                av = (av * cont + grayImage.at<uchar>(i,j))/(cont+1);
-                cont++;
-            }
-        }
-    }
-
-    qDebug()<<av;
-/*
-    for(int i = 0; i<regions.rows; i++){
-        for(int j = 0; j<regions.cols; j++){
-            if(regions.at<int>(i,j)==numberRegion){
-                dt += pow(grayImage.at<uchar>(i,j)-av,2);
-            }
-        }
-    }
-
-    dt=sqrt(dt+pow(grayImage.at<uchar>(p)-av,2)/cont);
-    //qDebug()<<dt;
-    return dt;*/
-
-    return abs(av - grayImage.at<uchar>(p));
-}
