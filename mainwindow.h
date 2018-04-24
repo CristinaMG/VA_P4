@@ -54,6 +54,7 @@ private:
     Rect imageWindow;
     Mat regions, borders;
     std::vector<region> regionsList;
+    std::vector<QMap<int,pair>> maps;
 
 public slots:
     void compute();
@@ -66,6 +67,7 @@ public slots:
     void create_region(Point inicial, int numberRegion);
     void draw_borders();
     void find_borders();
+    void merge();
 };
 
 

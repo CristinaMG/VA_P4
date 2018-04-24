@@ -59,6 +59,7 @@ void MainWindow::compute()
 
     regions.setTo(-1);
     regionsList.clear();
+    maps.clear();
 
     if(capture && cap->isOpened())
     {
@@ -182,7 +183,7 @@ void MainWindow::segmentation_image()
 
     for(int i = 0; i<grayImage.rows; i++){
         for(int j = 0; j<grayImage.cols; j++){
-            if(regions.at<int>(i,j) == -1){
+            if(regions.at<int>(i,j) == -1 && borders.at<uchar>(i, j) == 0){
                 create_region(Point(j,i), numberRegions);
                 numberRegions++;
 
@@ -234,31 +235,36 @@ void MainWindow::create_region(Point inicial, int numberRegion){
     while(i<list.size()){
         pAct = list[i];
 
-        if(pAct.x >=0 && pAct.x<grayImage.cols && pAct.y>=0 && pAct.y<grayImage.rows && regions.at<int>(pAct) == -1 && borders.at<uchar>(pAct)==0){
+        if(pAct.x >=0 && pAct.x<grayImage.cols && pAct.y>=0 && pAct.y<grayImage.rows && regions.at<int>(pAct) == -1){
             if(ui->checkBoxStatistics->isChecked()){
 
                 avNew = (av * cont + grayImage.at<uchar>(pAct))/(cont+1);
-                cont++;
+
                 dtNew = dt + (grayImage.at<uchar>(pAct)-av)*(grayImage.at<uchar>(pAct)-avNew);
 
-                if(sqrt(dtNew/cont) < 20.0)
+                if(sqrt(dtNew/(cont+1)) < 20.0)
                 {
                     av = avNew;
                     dt = dtNew;
+                    cont++;
                     regions.at<int>(pAct.y, pAct.x) = numberRegion;
-                    list.push_back(Point(pAct.x-1, pAct.y));
-                    list.push_back(Point(pAct.x, pAct.y-1));
-                    list.push_back(Point(pAct.x+1, pAct.y));
-                    list.push_back(Point(pAct.x, pAct.y+1));
+                    if(borders.at<uchar>(pAct)==0){
+                        list.push_back(Point(pAct.x-1, pAct.y));
+                        list.push_back(Point(pAct.x, pAct.y-1));
+                        list.push_back(Point(pAct.x+1, pAct.y));
+                        list.push_back(Point(pAct.x, pAct.y+1));
+                    }
                 }
             }else{
                 if(abs(grayImage.at<uchar>(pAct.y, pAct.x)-valueGray) < 50)
                 {
                     regions.at<int>(pAct.y, pAct.x) = numberRegion;
-                    list.push_back(Point(pAct.x-1, pAct.y));
-                    list.push_back(Point(pAct.x, pAct.y-1));
-                    list.push_back(Point(pAct.x+1, pAct.y));
-                    list.push_back(Point(pAct.x, pAct.y+1));
+                    if(borders.at<uchar>(pAct)==0){
+                        list.push_back(Point(pAct.x-1, pAct.y));
+                        list.push_back(Point(pAct.x, pAct.y-1));
+                        list.push_back(Point(pAct.x+1, pAct.y));
+                        list.push_back(Point(pAct.x, pAct.y+1));
+                    }
                 }
             }
         }
@@ -278,6 +284,10 @@ void MainWindow::create_region(Point inicial, int numberRegion){
 void MainWindow::draw_borders(){
     if(ui->checkBoxBorder->isChecked()){
         find_borders();
+
+        if(ui->checkBoxMerge->isChecked())
+            merge();
+
         for(uint i = 0; i<regionsList.size();i++){
             for(uint j = 0; j<regionsList.at(i).frontier.size(); j++){
                 visorD->drawSquare(QPointF(regionsList.at(i).frontier.at(j).x-1,regionsList.at(i).frontier.at(j).y-1), 2,2, Qt::green );
@@ -288,19 +298,18 @@ void MainWindow::draw_borders(){
 
 void MainWindow::find_borders(){
     bool border = false;
-    std::vector<QMap<int,pair>> maps;
     int id , idN;
     for(uint i = 0; i<regionsList.size();i++){
         //creamos un vector de mapas que corresponde a cada region
         maps.push_back(QMap<int, pair>());
     }
 
-
     for(int i = 0; i<grayImage.rows; i++){
         for(int j = 0; j<grayImage.cols; j++){
             border = false;
-            if(i>0 && regions.at<int>(i-1, j) != regions.at<int>(i,j)){
-                id=regions.at<int>(i,j);
+            id=regions.at<int>(i,j);
+
+            if(i>0 && regions.at<int>(i-1, j) != id){
                 idN=regions.at<int>(i-1, j);
                 regionsList.at(id).frontier.push_back(Point(j,i));
                 border = true;
@@ -312,20 +321,81 @@ void MainWindow::find_borders(){
                 maps.at(id)[idN].frontier++;
                 if(borders.at<uchar>(i,j) == 255 || borders.at<uchar>(i-1,j) ==255)
                     maps.at(id)[idN].bordersCanny++;
-
             }
 
-            if(j>0 && regions.at<int>(i,j-1) != regions.at<int>(i,j) && !border){
-                regionsList.at(regions.at<int>(i,j)).frontier.push_back(Point(j,i));
-                border=true;
+            if(j>0 && regions.at<int>(i, j-1) != id && !border){
+                idN=regions.at<int>(i, j-1);
+                regionsList.at(id).frontier.push_back(Point(j,i));
+                border = true;
+
+                if(maps.at(id).find(idN) == maps.at(id).end()){
+                    maps.at(id)[idN].bordersCanny = 0;
+                    maps.at(id)[idN].frontier = 0;
+                }
+                maps.at(id)[idN].frontier++;
+                if(borders.at<uchar>(i,j) == 255 || borders.at<uchar>(i,j-1) ==255)
+                    maps.at(id)[idN].bordersCanny++;
             }
-            if(i<grayImage.rows-1 && regions.at<int>(i+1,j) != regions.at<int>(i,j) && !border){
-                regionsList.at(regions.at<int>(i,j)).frontier.push_back(Point(j,i));
-                border=true;
+
+            if(i<grayImage.rows-1 && regions.at<int>(i+1,j) != id && !border){
+                idN=regions.at<int>(i+1, j);
+                regionsList.at(id).frontier.push_back(Point(j,i));
+                border = true;
+
+                if(maps.at(id).find(idN) == maps.at(id).end()){
+                    maps.at(id)[idN].bordersCanny = 0;
+                    maps.at(id)[idN].frontier = 0;
+                }
+                maps.at(id)[idN].frontier++;
+                if(borders.at<uchar>(i,j) == 255 || borders.at<uchar>(i+1,j) ==255)
+                    maps.at(id)[idN].bordersCanny++;
             }
-            if(j<grayImage.cols-1 && regions.at<int>(i,j+1) != regions.at<int>(i,j) && !border){
-                regionsList.at(regions.at<int>(i,j)).frontier.push_back(Point(j,i));
-                border=true;
+
+            if(j<grayImage.cols-1 && regions.at<int>(i,j+1) != id && !border){
+                idN=regions.at<int>(i, j+1);
+                regionsList.at(id).frontier.push_back(Point(j,i));
+                border = true;
+
+                if(maps.at(id).find(idN) == maps.at(id).end()){
+                    maps.at(id)[idN].bordersCanny = 0;
+                    maps.at(id)[idN].frontier = 0;
+                }
+                maps.at(id)[idN].frontier++;
+                if(borders.at<uchar>(i,j) == 255 || borders.at<uchar>(i,j+1) ==255)
+                    maps.at(id)[idN].bordersCanny++;
+            }
+        }
+    }
+}
+
+void MainWindow::merge(){
+    int numFrontier = 0;
+    for(uint i = 0; i<maps.size(); i++){
+        if(regionsList[i].id != -1){
+            for(auto j : maps[i].keys()){
+                numFrontier = 0;
+                if(regionsList.at(i).numPoints < regionsList.at(j).numPoints){
+                    for(auto k : maps.at(i).keys()){
+                        numFrontier += maps.at(i)[k].frontier;
+                    }
+                }else{
+                    for(auto k : maps.at(j).keys()){
+                        numFrontier += maps.at(j)[k].frontier;
+                    }
+                }
+                if(maps[i][j].bordersCanny / numFrontier * 100 < 20.0){ //Unir
+                    for(int l=0; l <regions.rows; l++){
+                        for(int m=0; m <regions.cols; m++){
+                            if(regions.at<int>(l,m) == j){
+                                regions.at<int>(l,m) = i;
+                            }
+                        }
+                    }
+                    //regionsList[j].id=-1;
+                    //find_borders();
+                    //Pinta al final despues de comprobar todos los checkbox y comprobar el numero de regiones inciales y finales
+
+                }
             }
         }
     }
