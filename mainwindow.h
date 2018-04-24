@@ -38,8 +38,8 @@ private:
     };
 
     struct pair{
-        int bordersCanny;
-        int frontier;
+        float bordersCanny;
+        float frontier;
     };
 
     Ui::MainWindow *ui;

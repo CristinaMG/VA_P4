@@ -28,8 +28,6 @@ MainWindow::MainWindow(QWidget *parent) :
     destGray2ColorImage.create(240,320,CV_8UC3);
 
     regions.create(240,320,CV_32SC1);
-    //i fila, j col
-
 
     connect(&timer,SIGNAL(timeout()),this,SLOT(compute()));
     connect(ui->captureButton,SIGNAL(clicked(bool)),this,SLOT(start_stop_capture(bool)));
@@ -215,12 +213,6 @@ void MainWindow::segmentation_image()
             }
         }
     }
-
-    for (int var = 0; var < regions.rows; ++var) {
-        for (int var2 = 0; var2 < regions.cols; ++var2) {
-            destGrayImage.at<uchar>(var,var2) = regionsList.at(regions.at<int>(var,var2)).gray;
-        }
-    }
 }
 
 void MainWindow::create_region(Point inicial, int numberRegion){
@@ -256,7 +248,7 @@ void MainWindow::create_region(Point inicial, int numberRegion){
                     }
                 }
             }else{
-                if(abs(grayImage.at<uchar>(pAct.y, pAct.x)-valueGray) < 50)
+                if(abs(grayImage.at<uchar>(pAct.y, pAct.x)-valueGray) < 30)
                 {
                     regions.at<int>(pAct.y, pAct.x) = numberRegion;
                     if(borders.at<uchar>(pAct)==0){
@@ -287,7 +279,15 @@ void MainWindow::draw_borders(){
 
         if(ui->checkBoxMerge->isChecked())
             merge();
+    }
 
+    for (int var = 0; var < regions.rows; ++var) {
+        for (int var2 = 0; var2 < regions.cols; ++var2) {
+            destGrayImage.at<uchar>(var,var2) = regionsList.at(regions.at<int>(var,var2)).gray;
+        }
+    }
+
+    if(ui->checkBoxBorder->isChecked()){
         for(uint i = 0; i<regionsList.size();i++){
             for(uint j = 0; j<regionsList.at(i).frontier.size(); j++){
                 visorD->drawSquare(QPointF(regionsList.at(i).frontier.at(j).x-1,regionsList.at(i).frontier.at(j).y-1), 2,2, Qt::green );
@@ -299,9 +299,15 @@ void MainWindow::draw_borders(){
 void MainWindow::find_borders(){
     bool border = false;
     int id , idN;
+
+    maps.clear();
+
     for(uint i = 0; i<regionsList.size();i++){
-        //creamos un vector de mapas que corresponde a cada region
         maps.push_back(QMap<int, pair>());
+    }
+
+    for (int var = 0; var < regionsList.size(); ++var) {
+        regionsList[var].frontier.clear();
     }
 
     for(int i = 0; i<grayImage.rows; i++){
@@ -356,7 +362,7 @@ void MainWindow::find_borders(){
                 regionsList.at(id).frontier.push_back(Point(j,i));
                 border = true;
 
-                if(maps.at(id).find(idN) == maps.at(id).end()){
+                if(maps[id].find(idN) == maps.at(id).end()){
                     maps.at(id)[idN].bordersCanny = 0;
                     maps.at(id)[idN].frontier = 0;
                 }
@@ -369,35 +375,41 @@ void MainWindow::find_borders(){
 }
 
 void MainWindow::merge(){
-    int numFrontier = 0;
-    for(uint i = 0; i<maps.size(); i++){
+    float numFrontier = 0.0;
+    bool merged = false;
+
+    for(uint i = 0; i<regionsList.size(); i++){
         if(regionsList[i].id != -1){
-            for(auto j : maps[i].keys()){
-                numFrontier = 0;
-                if(regionsList.at(i).numPoints < regionsList.at(j).numPoints){
-                    for(auto k : maps.at(i).keys()){
-                        numFrontier += maps.at(i)[k].frontier;
-                    }
-                }else{
-                    for(auto k : maps.at(j).keys()){
-                        numFrontier += maps.at(j)[k].frontier;
-                    }
-                }
-                if(maps[i][j].bordersCanny / numFrontier * 100 < 20.0){ //Unir
-                    for(int l=0; l <regions.rows; l++){
-                        for(int m=0; m <regions.cols; m++){
-                            if(regions.at<int>(l,m) == j){
-                                regions.at<int>(l,m) = i;
-                            }
+            merged = false;
+            for (int j = i; j < regionsList.size() && !merged; ++j) {
+                if(maps[i].find(j) != maps[i].end()){
+                    /*numFrontier = 0;
+                    if(regionsList[i].numPoints > regionsList[j].numPoints){
+                        for(auto k : maps[i].keys()){
+                            numFrontier += maps[i][k].frontier;
+                        }
+                    }else{
+                        for(auto k : maps[j].keys()){
+                            numFrontier += maps[j][k].frontier;
                         }
                     }
-                    //regionsList[j].id=-1;
-                    //find_borders();
-                    //Pinta al final despues de comprobar todos los checkbox y comprobar el numero de regiones inciales y finales
 
+                    if(maps[i][j].bordersCanny / numFrontier * 100.0 < 20.0){ //Unir*/
+                    if(maps[i][j].bordersCanny / maps[i][j].frontier * 100.0 < 20.0){ //Unir
+                        merged = true;
+                        for(int l=0; l <regions.rows; l++){
+                            for(int m=0; m <regions.cols; m++){
+                                if(regions.at<int>(l,m) == j){
+                                    regions.at<int>(l,m) = i;
+                                }
+                            }
+                        }
+                        regionsList[j].id=-1;
+                    }
                 }
             }
         }
     }
+    find_borders();
 }
 
