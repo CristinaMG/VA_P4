@@ -277,8 +277,9 @@ void MainWindow::draw_borders(){
     if(ui->checkBoxBorder->isChecked()){
         find_borders();
 
-        if(ui->checkBoxMerge->isChecked())
+        if(ui->checkBoxMerge->isChecked()) //Si llamamos varias veces al método merge() mejora notablemente el resultado
             merge();
+
     }
 
     for (int var = 0; var < regions.rows; ++var) {
@@ -383,8 +384,8 @@ void MainWindow::merge(){
             merged = false;
             for (int j = i; j < regionsList.size() && !merged; ++j) {
                 if(maps[i].find(j) != maps[i].end()){
-                    /*numFrontier = 0;
-                    if(regionsList[i].numPoints > regionsList[j].numPoints){
+                    numFrontier = 0;
+                    if(regionsList[i].numPoints < regionsList[j].numPoints){
                         for(auto k : maps[i].keys()){
                             numFrontier += maps[i][k].frontier;
                         }
@@ -394,17 +395,18 @@ void MainWindow::merge(){
                         }
                     }
 
-                    if(maps[i][j].bordersCanny / numFrontier * 100.0 < 20.0){ //Unir*/
-                    if(maps[i][j].bordersCanny / maps[i][j].frontier * 100.0 < 20.0){ //Unir
-                        merged = true;
-                        for(int l=0; l <regions.rows; l++){
-                            for(int m=0; m <regions.cols; m++){
-                                if(regions.at<int>(l,m) == j){
-                                    regions.at<int>(l,m) = i;
+                    if(maps[i][j].frontier / numFrontier * 100.0 > 20.0){
+                        if(maps[i][j].bordersCanny / maps[i][j].frontier * 100.0 < 20.0){ //Unir
+                            merged = true;
+                            for(int l=0; l <regions.rows; l++){
+                                for(int m=0; m <regions.cols; m++){
+                                    if(regions.at<int>(l,m) == j){
+                                        regions.at<int>(l,m) = i;
+                                    }
                                 }
                             }
+                            regionsList[j].id=-1;
                         }
-                        regionsList[j].id=-1;
                     }
                 }
             }
